@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+</head>
+<body>
+	<div id="problems"></div>
+	<button id="check">Check</button>
+	<div id="result"></div>
+	<div id="attempts"></div>
+
+	<script>
+		const findGetParameter = (parameterName) => {
+			let result = null
+			let tmp = []
+			let items = location.search.substr(1).split("&")
+			for (let i = 0; i < items.length; i++) {
+				tmp = items[i].split("=")
+				if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1])
+			}
+			return result
+		}
+
+		var problemsField = document.querySelector("#problems")
+		var checkButton = document.querySelector("#check")
+		var resultField = document.querySelector("#result")
+		var attemptsField = document.querySelector("#attempts")
+
+		const maxValue = findGetParameter("max") || parseInt(prompt("До скольки умеем считать?")) || 20
+		const problemsCount = findGetParameter("count") || parseInt(prompt("Сколько примеров?")) || 20
+
+		var makeSecSummand = [
+			{
+				// x + y = z
+				"name": "Сумма",
+				"sign": "+",
+				"f": (z) => {
+					let x = Math.max(0, Math.round(Math.random()*(z-2) + 1))
+					return {
+						"x": x,
+						"y": z - x					
+					}
+				}
+			},
+			{
+				// x - y = z
+				"name": "Разность",
+				"sign": "-",
+				"f": (z, maxValue=100) => {
+					let x = Math.min(maxValue, Math.round(Math.random()*(maxValue-z) + z + 1))
+					return {
+						"x": x,
+						"y": x - z
+					}
+				}
+			},
+			{
+				// x * y = z
+				"name": "Умножение",
+				"sign": "*",
+				"f": (z, maxValue=100) => {
+					do{
+						z = Math.round( Math.random() * (maxValue/2) ) + maxValue/2
+					}while(isPrime(z))
+					let dividers = getDividers(z)
+					let x
+					if(dividers.length == 1)
+						x = dividers[0]
+					else
+						x = dividers[Math.round(Math.random()*(dividers.length - 2)) + 1]
+					return {
+						"x": x,
+						"y": z / x,
+						"z": z
+					}
+				}
+			},
+			{
+				// x / y = z
+				"name": "Деление",
+				"sign": "/",
+				"f": (z, maxValue=100) => {
+					z = Math.max(0, Math.round( Math.random() * ((maxValue/2)-2) )) + 1
+					let fissionable = getFissionable(z)
+
+					let x
+					if(fissionable.length == 1)
+						x = fissionable[0]
+					else
+						x = fissionable[Math.round(Math.random()*(fissionable.length - 2)) + 1]
+					return {
+						"x": x,
+						"y": x / z,
+						"z": z
+					}
+				}
+			}
+		]
+
+		const isPrime = (num) => {
+			let dividers = getDividers(num)
+			if(dividers.length > 1)
+				return false
+			return true
+		}
+
+		const getFissionable = (num) => {
+			let fissionable = []
+			for (let i = num; i < maxValue; i++) {
+				if(!(i % num)){
+					fissionable.push(i)
+				}
+			}
+			return fissionable
+		}
+
+		const getDividers = (num) => {
+			let dividers = []
+			for (let i = 1; i < Math.ceil(Math.sqrt(num)) + 1; i++) {
+				if(!(num % i)){
+					dividers.push(i)
+				}
+			}
+			return dividers
+		}
+
+		const makeProblemContent = () => {
+			let operationNumber
+			do{
+				operationNumber = Math.round(Math.random()*(makeSecSummand.length - 1))
+			}while(findGetParameter(makeSecSummand[operationNumber].sign))
+			let answerValue = Math.max(0, Math.round( Math.random() * (maxValue-2) )) + 1
+			let summands = makeSecSummand[operationNumber].f(answerValue, maxValue)
+			answerValue = summands.z || answerValue
+			return {
+				"problem": `${summands.x} ${makeSecSummand[operationNumber].sign} ${summands.y} = `,
+				"answer" : answerValue
+			}
+		}
+
+		const createProblemElement = (id) => {
+			let currentProblem = makeProblemContent()
+			
+			let currentProblemBlock = document.createElement('div')
+			currentProblemBlock.id = "block_" + id
+
+			let currentProblemBlockResult = document.createElement('span')
+			currentProblemBlockResult.id = "result_" + id
+			currentProblemBlock.appendChild(currentProblemBlockResult)
+
+			let currentProblemBlockTask = document.createElement('span')
+			currentProblemBlockTask.id = "task_" + id
+			currentProblemBlockTask.innerHTML = currentProblem.problem
+			currentProblemBlock.appendChild(currentProblemBlockTask)
+
+			let currentProblemBlockAnswer = document.createElement('span')
+			currentProblemBlockAnswer.id = "answer_" + id
+			currentProblemBlockAnswer.innerHTML = currentProblem.answer
+			currentProblemBlockAnswer.style.display = "none"
+			currentProblemBlock.appendChild(currentProblemBlockAnswer)
+
+			let currentProblemInput = document.createElement('input')
+			currentProblemInput.id = "input_" + id
+			currentProblemInput.type = "number"
+			// currentProblemInput.value = currentProblem.answer
+			currentProblemBlock.appendChild(currentProblemInput)
+
+			return currentProblemBlock		
+		}
+
+		const generateProblems = (n) => {
+			for (let i = 0; i < n; i++)
+				problemsField.appendChild(createProblemElement(i))
+		}
+		
+		checkButton.onclick = () => {
+			
+			let correctAnswerCount = 0
+			
+			for (let i = 0; i < problemsField.childNodes.length; i++) {
+				let problem = problemsField.childNodes[i]
+				let usersAnswer = problem.childNodes[3].value
+				let correctAnswer = problem.childNodes[2].innerHTML
+
+				if(usersAnswer==correctAnswer){
+					problem.childNodes[0].innerHTML = "&#9745;"
+					correctAnswerCount++
+				}else{
+					problem.childNodes[0].innerHTML = "&#9746;"
+				}
+			}
+			
+			let correctAnswersMark = Math.round( (correctAnswerCount / problemsField.childNodes.length) * 10 )
+			
+			resultField.innerHTML = "Твоя оценка: " + correctAnswersMark;
+			
+			let attempts = parseInt(attemptsField.innerHTML.split(" ")[1]) || 0
+			attemptsField.innerHTML = "Попытки: " + (attempts+1);
+		}
+
+		window.onload = () => {
+			generateProblems(problemsCount)
+
+		}
+	</script>
+</body>
+</html>
+
+
